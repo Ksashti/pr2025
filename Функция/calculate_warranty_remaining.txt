@@ -1,0 +1,18 @@
+CREATE DEFINER=`root`@`localhost` FUNCTION `calculate_warranty_remaining`(warranty_end DATE) RETURNS varchar(255) CHARSET utf8mb3
+    DETERMINISTIC
+BEGIN
+    DECLARE days_remaining INT;
+    DECLARE remaining_str VARCHAR(255);
+
+    SET days_remaining = DATEDIFF(warranty_end, CURDATE());
+
+    IF days_remaining  0 THEN
+        SET remaining_str = CONCAT('Осталось ', days_remaining, ' дней до истечения гарантии.');
+    ELSEIF days_remaining = 0 THEN
+        SET remaining_str = 'Гарантия истекает сегодня.';
+    ELSE
+        SET remaining_str = 'Гарантия истекла.';
+    END IF;
+
+    RETURN remaining_str;
+END

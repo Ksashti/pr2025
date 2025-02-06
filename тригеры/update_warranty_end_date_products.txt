@@ -1,0 +1,13 @@
+CREATE DEFINER=`root`@`localhost` TRIGGER `update_warranty_end_date_products` AFTER UPDATE ON `products` FOR EACH ROW BEGIN
+    IF OLD.warranty_duration <> NEW.warranty_duration THEN
+       UPDATE Warranty_History wh
+        JOIN Products p ON wh.product_id = p.product_id
+        SET wh.warranty_end_date = DATE_ADD(wh.warranty_start_date, INTERVAL NEW.warranty_duration MONTH),
+            wh.status =
+            CASE
+                WHEN  DATE_ADD(wh.warranty_start_date, INTERVAL NEW.warranty_duration MONTH) < CURDATE() THEN 'expired'
+                ELSE 'active'
+            END
+       WHERE wh.product_id = NEW.product_id;
+    END IF;
+END

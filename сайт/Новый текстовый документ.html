@@ -1,0 +1,285 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление продуктами</title>
+    <!-- Подключение Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .navbar {
+            margin-bottom: 20px;
+        }
+        .table {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="#">Управление продуктами</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link" href="#products">Продукты</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#companies">Компании</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#users">Пользователи</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#groups">Группы продуктов</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#warranty">Гарантия</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+<section id="products" class="mb-5">
+    <h2>Все продукты с гарантийным статусом</h2>
+    <?php
+    $stmt = $pdo->query("
+        SELECT 
+            p.product_id,
+            p.product_name,
+            p.description,
+            p.price,
+            c.company_name,
+            c.address,
+            c.email AS company_email,
+            wh.status AS warranty_status,
+            wh.warranty_start_date,
+            wh.claim_date
+        FROM 
+            Products p
+        JOIN 
+            Companies c ON p.company_id = c.company_id
+        LEFT JOIN 
+            Warranty_History wh ON p.product_id = wh.product_id
+    ");
+
+    $products = $stmt->fetchAll();
+    if ($products) {
+        echo '<table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Название продукта</th>
+                        <th>Описание</th>
+                        <th>Цена</th>
+                        <th>Компания</th>
+                        <th>Статус гарантии</th>
+                        <th>Дата начала гарантии</th>
+                    </tr>
+                </thead>
+                <tbody>';
+        foreach ($products as $product) {
+            echo "<tr>
+                    <td>{$product['product_name']}</td>
+                    <td>{$product['description']}</td>
+                    <td>{$product['price']}</td>
+                    <td>{$product['company_name']}</td>
+                    <td>{$product['warranty_status']}</td>
+                    <td>{$product['warranty_start_date']}</td>
+                  </tr>";
+        }
+        echo '</tbody></table>';
+    } else {
+        echo '<div class="alert alert-warning">Нет данных о продуктах.</div>';
+    }
+    ?>
+</section>
+<section id="companies" class="mb-5">
+    <h2>Поиск компаний</h2>
+    <form method="GET" action="" class="mb-3">
+        <div class="input-group">
+            <input type="text" name="search" class="form-control" placeholder="Введите название или адрес">
+            <button type="submit" class="btn btn-primary">Поиск</button>
+        </div>
+    </form>
+    <?php
+    if (isset($_GET['search'])) {
+        $searchTerm = '%' . $_GET['search'] . '%';
+        $stmt = $pdo->prepare("
+            SELECT 
+                company_id,
+                company_name,
+                address,
+                email
+            FROM 
+                Companies
+            WHERE 
+                company_name LIKE :searchTerm OR address LIKE :searchTerm
+        ");
+        $stmt->execute(['searchTerm' => $searchTerm]);
+        $companies = $stmt->fetchAll();
+
+        if ($companies) {
+            echo '<table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Название компании</th>
+                            <th>Адрес</th>
+                            <th>Email</th>
+                        </tr>
+                    </thead>
+                    <tbody>';
+            foreach ($companies as $company) {
+                echo "<tr>
+                        <td>{$company['company_name']}</td>
+                        <td>{$company['address']}</td>
+                        <td>{$company['email']}</td>
+                      </tr>";
+            }
+            echo '</tbody></table>';
+        } else {
+            echo '<div class="alert alert-warning">Компании не найдены.</div>';
+        }
+    }
+    ?>
+</section>
+<section id="users" class="mb-5">
+    <h2>Пользователи и их продукты</h2>
+    <?php
+    $stmt = $pdo->query("
+        SELECT 
+            u.user_id,
+            u.username,
+            u.first_name,
+            u.last_name,
+            u.email,
+            COUNT(p.product_id) AS product_count
+        FROM 
+            Users u
+        JOIN 
+            Products p ON u.user_id = p.user_id
+        GROUP BY 
+            u.user_id
+    ");
+
+    $users = $stmt->fetchAll();
+    if ($users) {
+        echo '<table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Имя пользователя</th>
+                        <th>Имя</th>
+                        <th>Фамилия</th>
+                        <th>Email</th>
+                        <th>Количество продуктов</th>
+                    </tr>
+                </thead>
+                <tbody>';
+        foreach ($users as $user) {
+            echo "<tr>
+                    <td>{$user['username']}</td>
+                    <td>{$user['first_name']}</td>
+                    <td>{$user['last_name']}</td>
+                    <td>{$user['email']}</td>
+                    <td>{$user['product_count']}</td>
+                  </tr>";
+        }
+        echo '</tbody></table>';
+    } else {
+        echo '<div class="alert alert-warning">Нет данных о пользователях.</div>';
+    }
+    ?>
+</section>
+<section id="groups" class="mb-5">
+    <h2>Количество продуктов в группах</h2>
+    <?php
+    $stmt = $pdo->query("
+        SELECT 
+            pg.group_name,
+            COUNT(p.product_id) AS product_count
+        FROM 
+            Products_Groups pg
+        LEFT JOIN 
+            Products p ON pg.product_group_id = p.product_group_id
+        GROUP BY 
+            pg.product_group_id
+    ");
+
+    $groups = $stmt->fetchAll();
+    if ($groups) {
+        echo '<table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Группа</th>
+                        <th>Количество продуктов</th>
+                    </tr>
+                </thead>
+                <tbody>';
+        foreach ($groups as $group) {
+            echo "<tr>
+                    <td>{$group['group_name']}</td>
+                    <td>{$group['product_count']}</td>
+                  </tr>";
+        }
+        echo '</tbody></table>';
+    } else {
+        echo '<div class="alert alert-warning">Нет данных о группах.</div>';
+    }
+    ?>
+</section>
+<section id="warranty" class="mb-5">
+    <h2>Продукты с истекающей гарантией</h2>
+    <?php
+    $stmt = $pdo->query("
+        SELECT 
+            p.product_id,
+            p.product_name,
+            wh.warranty_start_date,
+            wh.status,
+            DATEDIFF(NOW(), wh.warranty_start_date) AS days_remaining
+        FROM 
+            Products p
+        JOIN 
+            Warranty_History wh ON p.product_id = wh.product_id
+        WHERE 
+            wh.status = 'active' AND 
+            DATEDIFF(NOW(), wh.warranty_start_date) BETWEEN -30 AND 0
+    ");
+
+    $products = $stmt->fetchAll();
+    if ($products) {
+        echo '<table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Название продукта</th>
+                        <th>Дата начала гарантии</th>
+                        <th>Статус</th>
+                        <th>Дней до истечения</th>
+                    </tr>
+                </thead>
+                <tbody>';
+        foreach ($products as $product) {
+            echo "<tr>
+                    <td>{$product['product_name']}</td>
+                    <td>{$product['warranty_start_date']}</td>
+                    <td>{$product['status']}</td>
+                    <td>{$product['days_remaining']}</td>
+                  </tr>";
+        }
+        echo '</tbody></table>';
+    } else {
+        echo '<div class="alert alert-warning">Нет продуктов с истекающей гарантией.</div>';
+    }
+    ?>
+</section>
+<!-- Подключение Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
