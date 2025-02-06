@@ -1,4 +1,35 @@
+<?php
+session_start();
 
+// Подключение к базе данных (замените на свои данные)
+$host = 'localhost';
+$db = 'your_database_name';
+$user = 'your_username';
+$pass = 'your_password';
+$charset = 'utf8mb4';
+
+$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+$options = [
+    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    PDO::ATTR_EMULATE_PREPARES => false,
+];
+
+try {
+    $pdo = new PDO($dsn, $user, $pass, $options);
+} catch (\PDOException $e) {
+    throw new \PDOException($e->getMessage(), (int)$e->getCode());
+}
+
+// Функция для получения имени пользователя (если вошел)
+function getUsername() {
+    if (isset($_SESSION['username'])) {
+        return htmlspecialchars($_SESSION['username']);
+    }
+    return null;
+}
+
+?>
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -21,10 +52,12 @@
     </style>
 </head>
 <body>
+
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="#">Управление продуктами</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
@@ -44,15 +77,36 @@
                 <li class="nav-item">
                     <a class="nav-link" href="#warranty">Гарантия</a>
                 </li>
+                <?php if (isset($_SESSION['user_id'])): ?>
+                    <li class="nav-item">
+                        <a class="nav-link" href="add_product.php">Добавить продукт</a>
+                    </li>
+                <?php endif; ?>
+            </ul>
+            <!-- Кнопка "Войти/Выйти" -->
+            <ul class="navbar-nav ms-auto">
+                <?php if (isset($_SESSION['user_id'])): ?>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">Привет, <?php echo getUsername(); ?></a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="logout.php">Выйти</a>
+                    </li>
+                <?php else: ?>
+                    <li class="nav-item">
+                        <a class="nav-link" href="login.html">Войти</a>
+                    </li>
+                <?php endif; ?>
             </ul>
         </div>
     </div>
 </nav>
+
 <section id="products" class="mb-5">
     <h2>Все продукты с гарантийным статусом</h2>
     <?php
     $stmt = $pdo->query("
-        SELECT 
+        SELECT
             p.product_id,
             p.product_name,
             p.description,
@@ -63,11 +117,11 @@
             wh.status AS warranty_status,
             wh.warranty_start_date,
             wh.claim_date
-        FROM 
+        FROM
             Products p
-        JOIN 
+        JOIN
             Companies c ON p.company_id = c.company_id
-        LEFT JOIN 
+        LEFT JOIN
             Warranty_History wh ON p.product_id = wh.product_id
     ");
 
@@ -101,6 +155,7 @@
     }
     ?>
 </section>
+
 <section id="companies" class="mb-5">
     <h2>Поиск компаний</h2>
     <form method="GET" action="" class="mb-3">
@@ -113,14 +168,14 @@
     if (isset($_GET['search'])) {
         $searchTerm = '%' . $_GET['search'] . '%';
         $stmt = $pdo->prepare("
-            SELECT 
+            SELECT
                 company_id,
                 company_name,
                 address,
                 email
-            FROM 
+            FROM
                 Companies
-            WHERE 
+            WHERE
                 company_name LIKE :searchTerm OR address LIKE :searchTerm
         ");
         $stmt->execute(['searchTerm' => $searchTerm]);
@@ -150,22 +205,23 @@
     }
     ?>
 </section>
+
 <section id="users" class="mb-5">
     <h2>Пользователи и их продукты</h2>
     <?php
     $stmt = $pdo->query("
-        SELECT 
+        SELECT
             u.user_id,
             u.username,
             u.first_name,
             u.last_name,
             u.email,
             COUNT(p.product_id) AS product_count
-        FROM 
+        FROM
             Users u
-        JOIN 
+        JOIN
             Products p ON u.user_id = p.user_id
-        GROUP BY 
+        GROUP BY
             u.user_id
     ");
 
@@ -197,18 +253,19 @@
     }
     ?>
 </section>
+
 <section id="groups" class="mb-5">
     <h2>Количество продуктов в группах</h2>
     <?php
     $stmt = $pdo->query("
-        SELECT 
+        SELECT
             pg.group_name,
             COUNT(p.product_id) AS product_count
-        FROM 
+        FROM
             Products_Groups pg
-        LEFT JOIN 
+        LEFT JOIN
             Products p ON pg.product_group_id = p.product_group_id
-        GROUP BY 
+        GROUP BY
             pg.product_group_id
     ");
 
@@ -234,22 +291,23 @@
     }
     ?>
 </section>
+
 <section id="warranty" class="mb-5">
     <h2>Продукты с истекающей гарантией</h2>
     <?php
     $stmt = $pdo->query("
-        SELECT 
+        SELECT
             p.product_id,
             p.product_name,
             wh.warranty_start_date,
             wh.status,
             DATEDIFF(NOW(), wh.warranty_start_date) AS days_remaining
-        FROM 
+        FROM
             Products p
-        JOIN 
+        JOIN
             Warranty_History wh ON p.product_id = wh.product_id
-        WHERE 
-            wh.status = 'active' AND 
+        WHERE
+            wh.status = 'active' AND
             DATEDIFF(NOW(), wh.warranty_start_date) BETWEEN -30 AND 0
     ");
 
@@ -279,6 +337,7 @@
     }
     ?>
 </section>
+
 <!-- Подключение Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
